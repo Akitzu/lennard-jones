@@ -1,0 +1,30 @@
+% Simulation parameters :
+dt = 4.6e-10                            % Time step dt
+Nsteps = 2000                           % Number of steps
+method = G                              % Integration method : VV = Velocity-Verlet, G = Gear
+sampling = 0                            % Number of steps waited before sampling again
+L = 9.908994468841403                   % Simulation box length
+
+% Physical parameters :
+N = 864                                 % Number of particles
+rcutoff = 2.5                           % Cutoff length
+thermostat = NVE                        % Thermostat used : NVE = none, VR = Velocity-Rescale, NH = Nose-Hoover, B = Berendsen
+T = 0.7866666666666667                  % Temperature of the thermostat
+
+% For Nose-Hoover :
+Q = 10
+lns = 0
+xi = 0
+
+% For Berendsen :
+tau = 0.1
+
+% Statistic parameters :
+histlength = 25                         % Length of the histogram in lj velocity units for v2, for v it is supposed (-sqrt(histlength),+sqrt(histlength))   
+Nbins = 2000                            % Number of bins for the histograms
+
+% Files handling :
+input = init.T94.4.dat                  % Name of the initial position and velocity file -- ex : init.T94.4.dat
+output = G_NVE_94.4T_nstep2000          % Name of the files -- ex : B_94.4T_nstep200
+precision = 15                          % Decimal precision of the outputs
+printoption = 2                         % 0 == only output final position and velocity, 1 also evolution, 2 also analysis (gofr,sofk,..)
