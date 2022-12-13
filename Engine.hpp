@@ -16,13 +16,17 @@
 void progress(double const& progress, double const& nsteps, int const cTotalLength = 10)
 {
     std::ostringstream foo;
-    
-    double lProgress = progress/(std::floor(nsteps/10.0)*10.0);
+    double lProgress(progress/nsteps);
+    if(nsteps>10){
+        lProgress = progress/(std::floor(nsteps/10.0)*10.0);
+    }
     if(std::abs(std::remainder(lProgress,0.1))>=1/(nsteps+1)){
         return;
     }
+    if(lProgress > 1.0 || lProgress < 0) return;
     int c1(std::floor(lProgress * cTotalLength));
     int c2(cTotalLength - c1);
+
     foo << "[" <<                                           //'\r' aka carriage return should move printer's cursor back at the beginning of the current line
         std::string(c1, 'X') <<       // printing filled part
         std::string(c2, '-') << // printing empty part
@@ -203,15 +207,16 @@ void Engine::run()
 {
     printOut(true); // Write the initial conditions
     enpot[0] = 0.e0;
-    while (t <= tend)
+    while (cstep < Nsteps)
     {
         step(dt);        // Actualize the system
         histo(histlength);
         t += dt;
         printOut(false); // Write the actual results
-        ++cstep;
         progress(cstep, Nsteps);
+        ++cstep;
     }
+    progress(Nsteps, Nsteps);
     printOut(true); // Write the last step
 
     // Print the final position and velocity

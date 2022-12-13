@@ -130,9 +130,9 @@ L = np.power(N*mass/rho,1/3)/sig              # Box length
 lat_par = L/Ncells                            # Lattice parameter
 
 ''' Simulation dictionnary '''
-sim_param = {   'Nsteps': 2000, 'method' : 'G', 'sampling' : 0, 'L' : L, 'N' : N, 'rcutoff' : 2.5, 'thermostat' : 'NVE',
+sim_param = {   'dt' : 4.6e-3, 'Nsteps': 200, 'method' : 'G', 'sampling' : 0, 'L' : L, 'N' : N, 'rcutoff' : 2.5, 'thermostat' : 'NVE',
                 'T' : T, 'Q' : 10, 'lns' : 0, 'xi' : 0, 'tau' : 0.1, 'histlength' : 25, 'Nbins' : 2000, 'input' : 'init.T94.4.dat',
-                'output' : 'G_NVE_94.4T_nstep2000', 'precision' : 15, 'printoption' : 2 }
+                'output' : 'G_NVE_94.4T_nstep2000', 'precision' : 15, 'printoption' : 1 }
 
 if __name__ == "__main__":
     # Create initial positions and velocities
