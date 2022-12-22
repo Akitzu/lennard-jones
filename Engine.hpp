@@ -10,7 +10,102 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <omp.h>
 #include <valarray>
+
+// valarrays operators
+template <typename T>
+std::valarray<std::valarray<T>> operator*(double const &a1, std::valarray<std::valarray<T>> const &a2)
+{
+    std::valarray<std::valarray<T>> res(a2.size());
+    
+    #pragma omp parallel for default(none) shared(res,a1,a2) schedule(dynamic)
+    for(size_t i = 0; i < a2.size(); ++i)
+    {
+        res[i] = a1 * a2[i];
+    }
+
+    return res;
+}
+
+template <typename T>
+std::valarray<std::valarray<T>> operator+(std::valarray<std::valarray<T>> const &a1, std::valarray<std::valarray<T>> const &a2)
+{
+    std::valarray<std::valarray<T>> res(a2.size());
+    
+    #pragma omp parallel for default(none) shared(res,a1,a2) schedule(dynamic)
+    for(size_t i = 0; i < a2.size(); ++i)
+    {
+        res[i] = a1[i] + a2[i];
+    }
+
+    return res;
+}
+
+template <typename T>
+T norm2(std::valarray<T> const &array)
+{
+    // compute and return the norm2 of a valarray
+    return std::sqrt((array * array).sum());
+}
+
+double norm2(std::valarray<std::valarray<double>> const &array)
+{
+    // compute and return the norm2 of a valarray of valarray
+    double nres(0.e0);   
+    
+    #pragma omp parallel for default(none) shared(array) reduction(+:nres) schedule(dynamic)
+    for(size_t i = 0;i < array.size();++i){
+        nres += std::pow(norm2(array[i]), 2);
+    }
+    
+    return std::sqrt(nres);
+}
+
+double scalarproduct(std::valarray<std::valarray<double>> const &a1, std::valarray<std::valarray<double>> const &a2)
+{
+    // compute and return the norm2 of a valarray of valarray
+    double res(0.e0);
+    if (a1.size() != a2.size() || a1[0].size() != a2[0].size())
+    {
+        std::cerr << "Error: the two valarray of valarray must have the same size" << std::endl;
+        exit(1);
+    }
+    
+    for (size_t i = 0; i < a1.size(); i++)
+    {
+        res += (a1[i] * a2[i]).sum();
+    }
+
+    return res;
+}
+
+template <typename T>
+void vvadd(std::valarray<std::valarray<T> > &inout, std::valarray<std::valarray<T> > &in) {
+    inout = inout + in;
+}
+
+template <typename T>
+void vadd(std::valarray<T> &inout, std::valarray<T> &in) {
+    inout = inout + in;
+}
+
+#pragma omp declare reduction(vd_plus : std::valarray<double> : \
+                              vadd(omp_out,omp_in)) \
+                    initializer(omp_priv = std::valarray<double>(omp_orig.size()))
+
+#pragma omp declare reduction(vi_plus : std::valarray<int> : \
+                              vadd(omp_out,omp_in)) \
+                    initializer(omp_priv = std::valarray<int>(omp_orig.size()))
+
+#pragma omp declare reduction(vvd_plus : std::valarray<std::valarray<double> > : \
+                              vvadd(omp_out,omp_in)) \
+                    initializer(omp_priv = std::valarray<std::valarray<double> > (std::valarray<double>(omp_orig[0].size()),omp_orig.size()))
+
+#pragma omp declare reduction(vvi_plus : std::valarray<std::valarray<int> > : \
+                              vvadd(omp_out,omp_in)) \
+                    initializer(omp_priv = std::valarray<std::valarray<int> > (std::valarray<int>(omp_orig[0].size()),omp_orig.size()))
+
 
 // progress bar
 void progress(double const& progress, double const& nsteps, int const cTotalLength = 10)
@@ -34,85 +129,21 @@ void progress(double const& progress, double const& nsteps, int const cTotalLeng
     std::cout << foo.str() << std::endl;
 }
 
-// valarrays operators
-template <typename T>
-std::valarray<std::valarray<T>> operator*(double const &a1, std::valarray<std::valarray<T>> const &a2)
-{
-    std::valarray<std::valarray<T>> res(a2.size());
-#pragma omp parallel for
-    for (size_t i = 0; i < a2.size(); ++i)
-    {
-        res[i] = a1 * a2[i];
-    }
-#pragma omp barrier
-    return res;
-}
-
-template <typename T>
-std::valarray<std::valarray<T>> operator+(std::valarray<std::valarray<T>> const &a1, std::valarray<std::valarray<T>> const &a2)
-{
-    std::valarray<std::valarray<T>> res(a2.size());
-#pragma omp parallel for
-    for (size_t i = 0; i < a2.size(); ++i)
-    {
-        res[i] = a1[i] + a2[i];
-    }
-#pragma omp barrier
-    return res;
-}
-
-template <typename T>
-T norm2(std::valarray<T> const &array)
-{
-    // compute and return the norm2 of a valarray
-    return std::sqrt((array * array).sum());
-}
-
-double norm2(std::valarray<std::valarray<double>> const &array)
-{
-    // compute and return the norm2 of a valarray of valarray
-    double nres(0.e0);
-#pragma omp parallel for
-    for (auto const &v : array)
-    {
-        nres += std::pow(norm2(v), 2);
-    }
-#pragma omp barrier
-    return std::sqrt(nres);
-}
-
-double scalarproduct(std::valarray<std::valarray<double>> const &a1, std::valarray<std::valarray<double>> const &a2)
-{
-    // compute and return the norm2 of a valarray of valarray
-    double res(0.e0);
-    if (a1.size() != a2.size() || a1[0].size() != a2[0].size())
-    {
-        std::cerr << "Error: the two valarray of valarray must have the same size" << std::endl;
-        exit(1);
-    }
-#pragma omp parallel for
-    for (size_t i = 0; i < a1.size(); i++)
-    {
-        res += (a1[i] * a2[i]).sum();
-    }
-#pragma omp barrier
-
-    return res;
-}
-
 // histogram
 std::valarray<int> histogram(std::valarray<double> const &data, double const &Lmin, double const &Lmax, size_t const &Nbins)
 {
     // compute the histogram of the data
-    std::valarray<int> histo(Nbins);
-    for (auto const &d : data)
-    {
-        double ind(std::floor(Nbins * ((d - Lmin) / (Lmax - Lmin))));
+    std::valarray<int> histo(Nbins); 
+
+    #pragma omp parallel for default(none) shared(data,Lmin,Lmax,Nbins) reduction(vi_plus:histo) schedule(dynamic)
+    for(size_t i = 0;i < data.size();++i){
+        double ind(std::floor(Nbins * ((data[i] - Lmin) / (Lmax - Lmin))));
         if (ind >= 0 && ind < Nbins)
         {
             histo[ind]++;
         }
     }
+
     return histo;
 }
 
@@ -263,7 +294,7 @@ void Engine::printOut(bool write)
 
 void Engine::boundary(std::valarray<double> &dr_)
 {
-    for (auto &dri : dr_)
+    for(auto &dri : dr_)
     {
         dri -= L * std::round(dri / L);
     }
@@ -272,6 +303,7 @@ void Engine::boundary(std::valarray<double> &dr_)
 void Engine::boundary()
 {
     // position rescaling
+    #pragma omp parallel for default(none) shared(position, posshift, L) schedule(dynamic)
     for(size_t i = 0;i<position.size();++i){
         for(size_t j = 0;j<position[0].size();++j){
             double sh(std::floor(position[i][j]/L));
@@ -309,36 +341,41 @@ std::string Engine::printSystem()
 std::valarray<std::valarray<double>> Engine::f(std::valarray<std::valarray<double>> const &position_, std::valarray<std::valarray<double>> const &velocity_)
 {
     std::valarray<std::valarray<double>> force({0, 0, 0}, position_.size());
-#pragma omp parallel for
-    for (size_t i = 0; i < position_.size(); ++i)
-    {
-#pragma omp parallel for
-        for (size_t j = i + 1; j < position_.size(); ++j)
-        {
+    std::valarray<int> nbofrtmp(Nbins);
+    double entmp(0.e0);
+
+    #pragma omp parallel for default(none) shared(position_,velocity_) reduction(vi_plus:nbofrtmp) reduction(vvd_plus:force) reduction(+:entmp) schedule(dynamic)
+    for (size_t i = 0; i < position_.size(); ++i){
+        for (size_t j = i + 1; j < position_.size(); ++j){
             std::valarray<double> dr = position_[i] - position_[j];
+            
             // boundary conditions
             boundary(dr);
+            
             // compute the force
             double dr2 = std::pow(norm2(dr), 2);
+
             std::valarray<double> F(3);
             if (dr2 < rcutoff * rcutoff)
             {
-                enpot[cstep] += 4 * (std::pow(dr2, -6) - std::pow(dr2, -3));
+                entmp += 4 * (std::pow(dr2, -6) - std::pow(dr2, -3));
                 F = 4 * (12 * std::pow(dr2, -7) - 6 * std::pow(dr2, -4)) * dr;
             }
-
+            
             force[i] += F;
             force[j] -= F;
+            
             if (dr2 < std::pow(Nbins * Lbin, 2))
-            {
+            {   
                 // compute the histogram of the radial distribution function
                 size_t bin(std::floor(std::sqrt(dr2) / Lbin));
-                nbofr[cstep][bin] += 1;
+                nbofrtmp[bin] += 1;
             }
         }
     }
-#pragma omp barrier
-    enpot[cstep] += 8 * M_PI * (std::pow(rcutoff, -9) / 9. - std::pow(rcutoff, -3) / 3.); // add the tail of potential energy
+
+    nbofr[cstep] = nbofrtmp;
+    enpot[cstep] += entmp+8 * M_PI * (std::pow(rcutoff, -9) / 9. - std::pow(rcutoff, -3) / 3.); // add the tail of potential energy
 
     return force;
 }
@@ -346,10 +383,10 @@ std::valarray<std::valarray<double>> Engine::f(std::valarray<std::valarray<doubl
 double Engine::Enpot()
 {
     double resenpot(0.e0);
-#pragma omp parallel for
+    
+    #pragma omp parallel for default(none) shared(position,rcutoff) reduction(+:resenpot) schedule(dynamic)
     for (size_t i = 0; i < position.size(); ++i)
     {
-#pragma omp parallel for
         for (size_t j = i + 1; j < position.size(); ++j)
         {
             std::valarray<double> dr = position[i] - position[j];
@@ -361,9 +398,8 @@ double Engine::Enpot()
             }
         }
     }
-#pragma omp barrier
-    resenpot += 8 * M_PI * (std::pow(rcutoff, -9) / 9. - std::pow(rcutoff, -3) / 3.); // add the tail of potential energy
 
+    resenpot += 8 * M_PI * (std::pow(rcutoff, -9) / 9. - std::pow(rcutoff, -3) / 3.); // add the tail of potential energy
     return resenpot;
 }
 
@@ -423,7 +459,7 @@ const std::valarray<std::valarray<double>> Engine::gofr()
     std::valarray<double> r(Nbins);
     double V(std::pow(2 * Nbins * Lbin, 3));
 
-#pragma omp parallel for
+    #pragma omp parallel for default(none) shared(nbofr,gofr_m)
     for (size_t i = 0; i < Nbins; ++i)
     {
         for (size_t j = 0; j < nbofr.size(); ++j)
@@ -432,8 +468,9 @@ const std::valarray<std::valarray<double>> Engine::gofr()
         }
         gofr_m[i] /= nbofr.size();
     }
-#pragma omp barrier
-    for (size_t i(0); i < Nbins; ++i)
+
+    #pragma omp parallel for default(none) shared(r,gofr_m,Lbin,V,N)
+    for (size_t i = 0; i < Nbins; ++i)
     {
         r[i] = Lbin * (i + 0.5);
         gofr_m[i] = 2 * V / (N * (N - 1)) / (4 * M_PI * r[i] * r[i] * Lbin) * gofr_m[i];
@@ -561,12 +598,14 @@ void EngineVVNH::step(double dt_)
 
     dynamiccoefs();
 
-    // // boundary conditions (which is for some reason not in md.py)
+    //boundary conditions (which is for some reason not in md.py)
+    boundary();
 
-    lns += xi * dt + 0.5 * dsumv2() * std::pow(dt, 2);
-    xi += 0.5 * dsumv2() * dt;
-    std::valarray<std::valarray<double>> nextf(f(position, velocity) - xi * velocity);
-    velocity += 0.5 * dt_ * nextf;
+    double ds2(dsumv2());
+    lns += xi * dt_ + 0.5 * ds2 * std::pow(dt_, 2);
+    xi += 0.5 * ds2 * dt_;
+    std::valarray<std::valarray<double>> nextf(f(position, velocity));
+    velocity += 0.5 * dt_ * nextf - 0.5 * dt_ * xi * velocity;
     ft = nextf;
     xi += 0.5 * dsumv2() * dt;
 }
@@ -576,6 +615,7 @@ std::string EngineVVNH::printSystem()
     std::string state;
     state += Engine::printSystem();
     state += " " + std::to_string(enNH() / N);
+    state += " " + std::to_string(lns) + " " + std::to_string(xi);
     return state;
 }
 
@@ -669,6 +709,7 @@ std::string EngineGNH::printSystem()
     std::string state;
     state += EngineGear::printSystem();
     state += " " + std::to_string(enNH() / N);
+    state += " " + std::to_string(lns) + " " + std::to_string(xi);
     return state;
 }
 

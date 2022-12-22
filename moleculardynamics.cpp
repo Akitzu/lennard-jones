@@ -55,8 +55,9 @@ int main(int argc, char* argv[])
   cout << "Start of the simulation" << endl;
 
   engine->run(); // Execute simulation
-  
+    
   delete engine;
+  
   cout << "End of the simulation." << endl;
   return 0;
 }
