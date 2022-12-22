@@ -96,6 +96,32 @@ def configFile(filename,**kwargs):
 
 '''Additional functions'''
 
+def calculate_sofk_FT(gofr, L, N, qmax=30, nqvec=300):
+    sofk = np.zeros(nqvec)
+    v = np.zeros(nqvec)
+    k = np.zeros(nqvec)
+    dq = qmax/float(nqvec-1)
+    rho = N / L**3
+    dr = gofr['r'][1]-gofr['r'][0]
+    for ii in range(nqvec):
+        k[ii] = ii*dq
+
+    for ii in range(len(k)):
+        for jj in range(len(gofr['r'])):
+          phase = k[ii]*gofr['r'][jj]
+          # Small sinus case
+          if abs(phase) < 1e-8:
+            v[jj] = gofr['r'][jj]**2 * \
+                (gofr['g'][jj]-1)*(1-phase**2/6 *
+                 (1-phase**2/20*(1-phase**2/42)))
+            # Integrand r[g(r)-1]sin(q*r)/q
+          else:
+            v[jj] = gofr['r'][jj]*(gofr['g'][jj]-1)*np.sin(phase)/k[ii]
+
+        sofk[ii] = 1 + 4*np.pi*rho*np.trapz(v, dx=dr)
+
+    return {'s': sofk, 'k': k}
+
 def read_pos_vel(fname,N):
     pos = np.loadtxt(fname,max_rows=int(N))
     vel = np.loadtxt(fname,skiprows=int(N))
@@ -111,29 +137,24 @@ def simulate(**kwargs):
     cmd(tmpstr)
 
 ''' Constants '''
-# Absolute constants
-Na = 6.02214076e23  # Avogadro number
-kb = 1.380649e-23   # Boltzmann constant
-
-# Lennard-Jones parameters
-epsilon = 120*kb    # Lennard-Jones potential depth (J)
-sig = 3.5e-10       # Lennard-Jones potential radius (m)
-mass = 39.95e-3/Na  # Mass of Argon atom (kg/m3)
-T = 94.4*kb/epsilon # Temperature (LJ)
-
-# LJ units
-# Simulation parameters
-N = 864                                       # Number of atoms
-rho = 1.374e3                                 # Density (kg/m3)
-Ncells = int(np.ceil(np.power(N/4,1/3)))      # Number of unit cells
-L = np.power(N*mass/rho,1/3)/sig              # Box length
-lat_par = L/Ncells                            # Lattice parameter
+constant = {}
+constant['Na'] = 6.02214076e23                              # Avogadro number
+constant['kb'] = 1.380649e-23                               # Boltzmann constant
+constant['epsilon'] = 120*constant['kb']                    # Lennard-Jones potential depth (J)
+constant['sig'] = 3.4e-10                                   # Lennard-Jones potential radius (m)
+constant['mass'] = 39.95e-3*1.6747e-24                      # Mass of Argon atom (kg) not 39.95e-3/Na in order to follow Rahman's paper
+constant['T'] = 94.4*constant['kb']/constant['epsilon']     # Temperature (LJ)
+constant['rho'] = 1.374e3                                   # Density (kg/m3)
+constant['N'] = 864                                         # Number of atoms
+constant['Ncells'] = int(np.round(np.power(constant['N']/4,1/3)))       # Number of cells in each direction
+constant['L'] = np.power(constant['N']*constant['mass']/constant['rho'],1/3)/constant['sig'] # Box length (LJ)
+constant['lat_par'] = constant['L']/constant['Ncells']      # Lattice parameter (LJ)
 
 ''' Simulation dictionnary '''
-sim_param = {   'dt' : 4.6e-3, 'Nsteps': 200, 'method' : 'G', 'sampling' : 0, 'L' : L, 'N' : N, 'rcutoff' : 2.5, 'thermostat' : 'NVE',
-                'T' : T, 'Q' : 10, 'lns' : 0, 'xi' : 0, 'tau' : 0.1, 'histlength' : 25, 'Nbins' : 2000, 'input' : 'init.T94.4.dat',
-                'output' : 'G_NVE_94.4T_nstep2000', 'precision' : 15, 'printoption' : 1 }
+sim_param = {   'dt' : 1e-14*np.sqrt(constant['epsilon']/constant['mass'])/constant['sig'], 'Nsteps': 200, 'method' : 'VV', 'sampling' : 0, 'L' : constant['L'], 'N' : constant['N'], 'rcutoff' : 2.5, 'thermostat' : 'NVE',
+                'T' : constant['T'], 'Q' : 10, 'lns' : 0, 'xi' : 0, 'tau' : 0.1, 'histlength' : 25, 'Nbins' : 2000, 'input' : 'init.T94.4.dat',
+                'output' : 'output', 'precision' : 15, 'printoption' : 2 }
 
 if __name__ == "__main__":
     # Create initial positions and velocities
-    initfile(Ncells, lat_par, T, 'init.T94.4.dat')
+    initfile(constant['Ncells'], constant['lat_par'], constant['T'], 'init.T94.4.dat')
